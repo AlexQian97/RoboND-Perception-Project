@@ -56,32 +56,40 @@ def pcl_callback(pcl_msg):
     # Convert ROS msg to PCL data
     cloud = ros_to_pcl(pcl_msg)
 
-    # Statistical Outlier Filtering
-    outlier_filter = cloud.make_statistical_outlier_filter()
-    outlier_filter.set_mean_k(50)
-    x = 1.0
-    outlier_filter.set_std_dev_mul_thresh(x)
-    cloud_filtered = outlier_filter.filter()
-
     # Voxel Grid Downsampling
     vox = cloud.make_voxel_grid_filter()
     leaf_size = 0.01
     vox.set_leaf_size(leaf_size, leaf_size, leaf_size)
     cloud_filtered = vox.filter()
 
+    # Statistical Outlier Filtering
+    outlier_filter = cloud_filtered.make_statistical_outlier_filter()
+    outlier_filter.set_mean_k(50)
+    x = 0.1
+    outlier_filter.set_std_dev_mul_thresh(x)
+    cloud_filtered = outlier_filter.filter()
+
     # PassThrough Filter
     passthrough = cloud_filtered.make_passthrough_filter()
     filter_axis = 'z'
     passthrough.set_filter_field_name(filter_axis)
-    axis_min = 0.77
-    axis_max = 1.1
+    axis_min = 0.6
+    axis_max = 2.0
+    passthrough.set_filter_limits(axis_min, axis_max)
+    cloud_filtered = passthrough.filter()
+
+    passthrough = cloud_filtered.make_passthrough_filter()
+    filter_axis = 'y'
+    passthrough.set_filter_field_name(filter_axis)
+    axis_min = -0.4
+    axis_max = 0.4
     passthrough.set_filter_limits(axis_min, axis_max)
     cloud_filtered = passthrough.filter()
 
     # RANSAC Plane Segmentation
     seg = cloud_filtered.make_segmenter()
     seg.set_model_type(pcl.SACMODEL_PLANE)
-    seg.set_mothod_type(pcl.SAC_RANSAC)
+    seg.set_method_type(pcl.SAC_RANSAC)
     max_distance = 0.01
     seg.set_distance_threshold(max_distance)
     inliers, coefficients = seg.segment()
@@ -94,9 +102,9 @@ def pcl_callback(pcl_msg):
     white_cloud = XYZRGB_to_XYZ(extracted_outliers)
     tree = white_cloud.make_kdtree()
     ec = white_cloud.make_EuclideanClusterExtraction()
-    ec.set_ClusterTolerance(0.02)
-    ec.set_MinClusterSize(100)
-    ec.set_MaxClusterSize(1500)
+    ec.set_ClusterTolerance(0.025)
+    ec.set_MinClusterSize(10)
+    ec.set_MaxClusterSize(2000)
     ec.set_SearchMethod(tree)
     cluster_indices = ec.Extract()
 
@@ -147,7 +155,7 @@ def pcl_callback(pcl_msg):
 
         # Publish a label into RViz
         label_pos = list(white_cloud[pts_list[0]])
-        label_pos[2] += .4
+        label_pos[2] += .2
         object_markers_pub.publish(make_label(label, label_pos, index))
 
         # Add the detected object to the list of detected objects.
@@ -164,47 +172,47 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    try:
-        pr2_mover(detected_objects_list)
-    except rospy.ROSInterruptException:
-        pass
+    # try:
+    #     pr2_mover(detected_objects)
+    # except rospy.ROSInterruptException:
+    #     pass
 
 
-# function to load parameters and request PickPlace service
-def pr2_mover(object_list):
-    # TODO: Initialize variables
-
-    # TODO: Get/Read parameters
-
-    # TODO: Parse parameters into individual variables
-
-    # TODO: Rotate PR2 in place to capture side tables for the collision map
-
-    # TODO: Loop through the pick list
-
-    # TODO: Get the PointCloud for a given object and obtain it's centroid
-
-    # TODO: Create 'place_pose' for the object
-
-    # TODO: Assign the arm to be used for pick_place
-
-    # TODO: Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
-
-    # Wait for 'pick_place_routine' service to come up
-    rospy.wait_for_service('pick_place_routine')
-
-    try:
-        pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
-
-        # TODO: Insert your message variables to be sent as a service request
-        resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
-
-        print ("Response: ", resp.success)
-
-    except rospy.ServiceException, e:
-        print "Service call failed: %s" % e
-
-        # TODO: Output your request parameters into output yaml file
+# # function to load parameters and request PickPlace service
+# def pr2_mover(object_list):
+#     # TODO: Initialize variables
+#
+#     # TODO: Get/Read parameters
+#
+#     # TODO: Parse parameters into individual variables
+#
+#     # TODO: Rotate PR2 in place to capture side tables for the collision map
+#
+#     # TODO: Loop through the pick list
+#
+#     # TODO: Get the PointCloud for a given object and obtain it's centroid
+#
+#     # TODO: Create 'place_pose' for the object
+#
+#     # TODO: Assign the arm to be used for pick_place
+#
+#     # TODO: Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
+#
+#     # Wait for 'pick_place_routine' service to come up
+#     rospy.wait_for_service('pick_place_routine')
+#
+#     try:
+#         pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+#
+#         # TODO: Insert your message variables to be sent as a service request
+#         resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
+#
+#         print ("Response: ", resp.success)
+#
+#     except rospy.ServiceException, e:
+#         print "Service call failed: %s" % e
+#
+#         # TODO: Output your request parameters into output yaml file
 
 
 if __name__ == '__main__':
@@ -221,6 +229,9 @@ if __name__ == '__main__':
     pcl_cluster_pub = rospy.Publisher("/pcl_cluster", PointCloud2, queue_size=1)
     object_markers_pub = rospy.Publisher("/object_markers", Marker, queue_size=1)
     detected_objects_pub = rospy.Publisher("/detected_objects", DetectedObjectsArray, queue_size=1)
+
+    pcl_collision_pub = rospy.Publisher("/pr2/3d_map/points", PointCloud2, queue_size=1)
+    pub_body = rospy.Publisher("/pr2/world_joint_controller/command", Float64, queue_size=1)
 
     # TODO: Load Model From disk
     model = pickle.load(open('model.sav', 'rb'))
