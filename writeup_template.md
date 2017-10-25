@@ -85,12 +85,126 @@ extracted_outliers = cloud_filtered.extract(inliers, negative=True)     # object
 ```
 
 #### 2. Complete Exercise 2 steps: Pipeline including clustering for segmentation implemented.  
+1. Euclidean Clustering
+```python
+white_cloud = XYZRGB_to_XYZ(extracted_outliers)
+tree = white_cloud.make_kdtree()
+ec = white_cloud.make_EuclideanClusterExtraction()
+ec.set_ClusterTolerance(0.025)
+ec.set_MinClusterSize(30)
+ec.set_MaxClusterSize(2000)
+ec.set_SearchMethod(tree)
+cluster_indices = ec.Extract()
+```
+2. Create Cluster-Mask Point Cloud to visualize each cluster separately
+```python
+cluster_color = get_color_list(len(cluster_indices))
+color_cluster_point_list = []
+
+for j, indices in enumerate(cluster_indices):
+    for i, indice in enumerate(indices):
+        color_cluster_point_list.append([white_cloud[indice][0],
+                                         white_cloud[indice][1],
+                                         white_cloud[indice][2],
+                                         rgb_to_float(cluster_color[j])])
+
+cluster_cloud = pcl.PointCloud_PointXYZRGB()
+cluster_cloud.from_list(color_cluster_point_list)
+```
+3. Convert PCL data to ROS messages
+```python
+ros_cloud_objects = pcl_to_ros(extracted_outliers)
+ros_cloud_table = pcl_to_ros(extracted_inliers)
+ros_cluster_cloud = pcl_to_ros(cluster_cloud)
+```
+4. Publish ROS messages
+```python
+pcl_object_pub.publish(ros_cloud_objects)
+pcl_table_pub.publish(ros_cloud_table)
+pcl_cluster_pub.publish(ros_cluster_cloud)
+```
 
 #### 2. Complete Exercise 3 Steps.  Features extracted and SVM trained.  Object recognition implemented.
-Here is an example of how to include an image in your writeup.
+1. Feature Extraction using both color histogram and normal histogram.
+```python
+def compute_color_histograms(cloud, using_hsv=False):
 
-![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
+    # Compute histograms for the clusters
+    point_colors_list = []
 
+    # Step through each point in the point cloud
+    for point in pc2.read_points(cloud, skip_nans=True):
+        rgb_list = float_to_rgb(point[3])
+        if using_hsv:
+            point_colors_list.append(rgb_to_hsv(rgb_list) * 255)
+        else:
+            point_colors_list.append(rgb_list)
+
+    # Populate lists with color values
+    channel_1_vals = []
+    channel_2_vals = []
+    channel_3_vals = []
+
+    for color in point_colors_list:
+        channel_1_vals.append(color[0])
+        channel_2_vals.append(color[1])
+        channel_3_vals.append(color[2])
+    
+    # Compute histograms
+    h_hist = np.histogram(channel_1_vals, bins=64, range=(0, 256))
+    s_hist = np.histogram(channel_2_vals, bins=64, range=(0, 256))
+    v_hist = np.histogram(channel_3_vals, bins=64, range=(0, 256))
+
+    # Concatenate and normalize the histograms
+    hist_features = np.concatenate((h_hist[0], s_hist[0], v_hist[0])).astype(np.float64)
+    normed_features = hist_features / np.sum(hist_features)
+
+    return normed_features
+
+def compute_normal_histograms(normal_cloud):
+    norm_x_vals = []
+    norm_y_vals = []
+    norm_z_vals = []
+
+    for norm_component in pc2.read_points(normal_cloud,
+                                          field_names = ('normal_x', 'normal_y', 'normal_z'),
+                                          skip_nans=True):
+        norm_x_vals.append(norm_component[0])
+        norm_y_vals.append(norm_component[1])
+        norm_z_vals.append(norm_component[2])
+
+    # Compute histograms of normal values (just like with color)
+    norm_x_hist = np.histogram(norm_x_vals, bins=32, range=(0.0, 1.0))
+    norm_y_hist = np.histogram(norm_y_vals, bins=32, range=(0.0, 1.0))
+    norm_z_hist = np.histogram(norm_z_vals, bins=32, range=(0.0, 1.0))
+
+    # Concatenate and normalize the histograms
+    hist_features = np.concatenate((norm_x_hist[0], norm_y_hist[0], norm_z_hist[0])).astype(np.float64)
+    normed_features = hist_features / np.sum(hist_features)
+
+    return normed_features
+```
+2. Capture Features as training data.
+```commandline
+roslaunch sensor_stick training.launch
+rosrun sensor_stick capture_features.py
+```
+The first command will bring up the Gazebo environment and the second script will capture and save features of each of 
+the objects in the environment. This script spawns each object in random 15 orientations.
+
+3. Train the classifer with the data collected.
+```commandline
+rosrun sensor_stick train_svm.py
+```
+The results are attached below.
+```commandline
+Features in Training Set: 120
+Invalid Features in Training set: 0
+Scores: [ 0.95833333  0.91666667  0.79166667  0.875       0.875     ]
+Accuracy: 0.88 (+/- 0.11)
+accuracy score: 0.883333333333
+```
+![confusion matrix]()
 ### Pick and Place Setup
 
 #### 1. For all three tabletop setups (`test*.world`), perform object recognition, then read in respective pick list (`pick_list_*.yaml`). Next construct the messages that would comprise a valid `PickPlace` request output them to `.yaml` format.
