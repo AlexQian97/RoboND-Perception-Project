@@ -204,15 +204,28 @@ Scores: [ 0.95833333  0.91666667  0.79166667  0.875       0.875     ]
 Accuracy: 0.88 (+/- 0.11)
 accuracy score: 0.883333333333
 ```
-![confusion matrix]()
+![confusion matrix](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/confusion_matrix.png)
+
+![normalized matrix](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/normalized_matrix.png)
+
 ### Pick and Place Setup
 
 #### 1. For all three tabletop setups (`test*.world`), perform object recognition, then read in respective pick list (`pick_list_*.yaml`). Next construct the messages that would comprise a valid `PickPlace` request output them to `.yaml` format.
+Images for object recognition are attached below.
 
-And here's another image! 
-![demo-2](https://user-images.githubusercontent.com/20687560/28748286-9f65680e-7468-11e7-83dc-f1a32380b89c.png)
+![scene 1](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/scene_1.png)
 
-Spend some time at the end to discuss your code, what techniques you used, what worked and why, where the implementation might fail and how you might improve it if you were going to pursue this project further.  
+![scene 2](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/scene_2.png)
 
+![scene_3](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/scene_3.png)
 
+A Image for a successful pick and place is attached below.
+![pick_place] (https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/pick_place.png)
+
+## Discussion
+Both color histogram and normal histogram are used in training. 64 bins are used in color histogram and 32 bins are used
+in normal histogram because I thought it would be easier to identify ojects by color rather than by shape.
+
+The default number of random rotations is 5 while I changed it to 15 because more training data will train better model.
+It turns out the accuary is 88.3% at last while it was 80% with only 5 orientations.
 
