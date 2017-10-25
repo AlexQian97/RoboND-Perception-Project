@@ -65,7 +65,7 @@ def pcl_callback(pcl_msg):
     # Statistical Outlier Filtering
     outlier_filter = cloud_filtered.make_statistical_outlier_filter()
     outlier_filter.set_mean_k(50)
-    x = 0.1
+    x = 0.05
     outlier_filter.set_std_dev_mul_thresh(x)
     cloud_filtered = outlier_filter.filter()
 
@@ -74,7 +74,7 @@ def pcl_callback(pcl_msg):
     filter_axis = 'z'
     passthrough.set_filter_field_name(filter_axis)
     axis_min = 0.6
-    axis_max = 2.0
+    axis_max = 1.5
     passthrough.set_filter_limits(axis_min, axis_max)
     cloud_filtered = passthrough.filter()
 
@@ -103,7 +103,7 @@ def pcl_callback(pcl_msg):
     tree = white_cloud.make_kdtree()
     ec = white_cloud.make_EuclideanClusterExtraction()
     ec.set_ClusterTolerance(0.025)
-    ec.set_MinClusterSize(10)
+    ec.set_MinClusterSize(30)
     ec.set_MaxClusterSize(2000)
     ec.set_SearchMethod(tree)
     cluster_indices = ec.Extract()
@@ -139,7 +139,7 @@ def pcl_callback(pcl_msg):
     detected_objects = []
     for index, pts_list in enumerate(cluster_indices):
         # Grab the points for the cluster
-        pcl_cluster = cluster_cloud.extract(pts_list)
+        pcl_cluster = extracted_outliers.extract(pts_list)
         ros_cluster = pcl_to_ros(pcl_cluster)
 
         # Compute the associated feature vector
