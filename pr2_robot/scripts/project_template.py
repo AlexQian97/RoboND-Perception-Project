@@ -51,7 +51,7 @@ def send_to_yaml(yaml_filename, dict_list):
 
 # Callback function for your Point Cloud Subscriber
 def pcl_callback(pcl_msg):
-    # Exercise-2 TODOs:
+    global detected_objects
 
     # Convert ROS msg to PCL data
     cloud = ros_to_pcl(pcl_msg)
@@ -69,7 +69,7 @@ def pcl_callback(pcl_msg):
     outlier_filter.set_std_dev_mul_thresh(x)
     cloud_filtered = outlier_filter.filter()
 
-    # PassThrough Filter
+    # PassThrough Filtetring()r
     passthrough = cloud_filtered.make_passthrough_filter()
     filter_axis = 'z'
     passthrough.set_filter_field_name(filter_axis)
@@ -178,52 +178,82 @@ def pcl_callback(pcl_msg):
     #     pass
 
 
-# # function to load parameters and request PickPlace service
-# def pr2_mover(object_list):
-#     # TODO: Initialize variables
-#
-#     # TODO: Get/Read parameters
-#
-#     # TODO: Parse parameters into individual variables
-#
-#     # TODO: Rotate PR2 in place to capture side tables for the collision map
-#
-#     # TODO: Loop through the pick list
-#
-#     # TODO: Get the PointCloud for a given object and obtain it's centroid
-#
-#     # TODO: Create 'place_pose' for the object
-#
-#     # TODO: Assign the arm to be used for pick_place
-#
-#     # TODO: Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
-#
-#     # Wait for 'pick_place_routine' service to come up
-#     rospy.wait_for_service('pick_place_routine')
-#
-#     try:
-#         pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
-#
-#         # TODO: Insert your message variables to be sent as a service request
-#         resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
-#
-#         print ("Response: ", resp.success)
-#
-#     except rospy.ServiceException, e:
-#         print "Service call failed: %s" % e
-#
-#         # TODO: Output your request parameters into output yaml file
+# function to load parameters and request PickPlace service
+def pr2_mover(object_list):
+    # Initialize variables
+    dict_list = []
+    object_name = String()
+    object_group = String()
+    arm_name = String()
+    pick_pose = Pose()
+    place_pose = Pose()
+
+    # Get/Read parameters
+    object_list_param = rospy.get_param('/object_list')
+    for i in range(len(object_list_param)):
+        # Parse parameters into individual variables
+        object_name.data = object_list_param[i]['name']
+        object_group.data = object_list_param[i]['group']
+        # TODO: Rotate PR2 in place to capture side tables for the collision map
+
+        # Loop through the pick list
+        for this_object in detected_objects:
+            if this_object.label == object_name.data:
+                # Get the PointCloud for a given object and obtain it's centroid
+                points_arr = ros_to_pcl(this_object.cloud).to_array()
+                centroid = np.mean(points_arr, axis=0)[:3]
+                centroid = [np.asscalar(centroid[0]), np.asscalar(centroid[1]), np.asscalar(centroid[2])]
+            # Create 'place_pose' for the object and assign the arm to be used for pick_place
+            if object_group.data == 'green':
+                arm_name.data = 'right'
+                place_pose.position.x = 0
+                place_pose.position.y = - 0.71
+                place_pose.position.z = 0.605
+            else:
+                arm_name.data = 'left'
+                place_pose.position.x = 0
+                place_pose.position.y = 0.71
+                place_pose.position.z = 0.605
+
+            pick_pose.position.x = centroid[0]
+            pick_pose.position.y = centroid[1]
+            pick_pose.position.z = centroid[2]
+
+            # Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
+            yaml_dict = make_yaml_dict(test_scene_num, arm_name, object_name, pick_pose, place_pose)
+            dict_list.append(yaml_dict)
+
+    # Wait for 'pick_place_routine' service to come up
+    rospy.wait_for_service('pick_place_routine')
+
+    try:
+        pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+
+        # Insert your message variables to be sent as a service request
+        resp = pick_place_routine(test_scene_num, object_name, arm_name, pick_pose, place_pose)
+
+        print ("Response: ", resp.success)
+
+    except rospy.ServiceException, e:
+        print "Service call failed: %s" % e
+
+        # Output your request parameters into output yaml file
+        send_to_yaml('output_%d.yaml' % test_scene_num.data, dict_list)
 
 
 if __name__ == '__main__':
 
-    # TODO: ROS node initialization
+    # ROS node initialization
     rospy.init_node('clustering', anonymous=True)
 
-    # TODO: Create Subscribers
+    # get scene number
+    test_scene_num = Int32()
+    test_scene_num.data = 1
+
+    # Create Subscribers
     pcl_sub = rospy.Subscriber("/pr2/world/points", pc2.PointCloud2, pcl_callback, queue_size=1)
 
-    # TODO: Create Publishers
+    # Create Publishers
     pcl_object_pub = rospy.Publisher("/pcl_objects", PointCloud2, queue_size=1)
     pcl_table_pub = rospy.Publisher("/pcl_table", PointCloud2, queue_size=1)
     pcl_cluster_pub = rospy.Publisher("/pcl_cluster", PointCloud2, queue_size=1)
@@ -233,7 +263,7 @@ if __name__ == '__main__':
     pcl_collision_pub = rospy.Publisher("/pr2/3d_map/points", PointCloud2, queue_size=1)
     pub_body = rospy.Publisher("/pr2/world_joint_controller/command", Float64, queue_size=1)
 
-    # TODO: Load Model From disk
+    # Load Model From disk
     model = pickle.load(open('model.sav', 'rb'))
     clf = model['classifier']
     encoder = LabelEncoder()
@@ -243,6 +273,6 @@ if __name__ == '__main__':
     # Initialize color_list
     get_color_list.color_list = []
 
-    # TODO: Spin while node is not shutdown
+    # Spin while node is not shutdown
     while not rospy.is_shutdown():
         rospy.spin()
