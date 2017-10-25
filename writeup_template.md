@@ -36,6 +36,53 @@ You're reading it!
 
 ### Exercise 1, 2 and 3 pipeline implemented
 #### 1. Complete Exercise 1 steps. Pipeline for filtering and RANSAC plane fitting implemented.
+1. Downsample the point cloud by applying a Voxel Grid Filter.
+```python
+vox = cloud.make_voxel_grid_filter()
+leaf_size = 0.01
+vox.set_leaf_size(leaf_size, leaf_size, leaf_size)
+cloud_filtered = vox.filter()
+```
+2. Add a statistical outlier filter to remove noise from the data.
+```python
+outlier_filter = cloud_filtered.make_statistical_outlier_filter()
+outlier_filter.set_mean_k(50)
+x = 0.05
+outlier_filter.set_std_dev_mul_thresh(x)
+cloud_filtered = outlier_filter.filter()
+```
+3. Apply a Passthrough Filter to isolate the table and objects. The passthrough filter is used twice to filter out the drop boxes.
+```python
+passthrough = cloud_filtered.make_passthrough_filter()
+filter_axis = 'z'
+passthrough.set_filter_field_name(filter_axis)
+axis_min = 0.6
+axis_max = 1.5
+passthrough.set_filter_limits(axis_min, axis_max)
+cloud_filtered = passthrough.filter()
+
+passthrough = cloud_filtered.make_passthrough_filter()
+filter_axis = 'y'
+passthrough.set_filter_field_name(filter_axis)
+axis_min = -0.4
+axis_max = 0.4
+passthrough.set_filter_limits(axis_min, axis_max)
+cloud_filtered = passthrough.filter()
+```
+4. Perform RANSAC plane fitting to identify the table.
+```python
+seg = cloud_filtered.make_segmenter()
+seg.set_model_type(pcl.SACMODEL_PLANE)
+seg.set_method_type(pcl.SAC_RANSAC)
+max_distance = 0.01
+seg.set_distance_threshold(max_distance)
+inliers, coefficients = seg.segment()
+```
+5. Use the Passthrough Filter to create new point clouds containing the table and objects separately.
+```python
+extracted_inliers = cloud_filtered.extract(inliers, negative=False)     # table
+extracted_outliers = cloud_filtered.extract(inliers, negative=True)     # objects
+```
 
 #### 2. Complete Exercise 2 steps: Pipeline including clustering for segmentation implemented.  
 
