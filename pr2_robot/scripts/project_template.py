@@ -172,10 +172,10 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    # try:
-    #     pr2_mover(detected_objects)
-    # except rospy.ROSInterruptException:
-    #     pass
+    try:
+        pr2_mover(detected_objects)
+    except rospy.ROSInterruptException:
+        pass
 
 
 # function to load parameters and request PickPlace service
@@ -203,42 +203,43 @@ def pr2_mover(object_list):
                 points_arr = ros_to_pcl(this_object.cloud).to_array()
                 centroid = np.mean(points_arr, axis=0)[:3]
                 centroid = [np.asscalar(centroid[0]), np.asscalar(centroid[1]), np.asscalar(centroid[2])]
-            # Create 'place_pose' for the object and assign the arm to be used for pick_place
-            if object_group.data == 'green':
-                arm_name.data = 'right'
-                place_pose.position.x = 0
-                place_pose.position.y = - 0.71
-                place_pose.position.z = 0.605
-            else:
-                arm_name.data = 'left'
-                place_pose.position.x = 0
-                place_pose.position.y = 0.71
-                place_pose.position.z = 0.605
+                # Create 'place_pose' for the object and assign the arm to be used for pick_place
+                if object_group.data == 'green':
+                    arm_name.data = 'right'
+                    place_pose.position.x = 0
+                    place_pose.position.y = - 0.71
+                    place_pose.position.z = 0.605
+                else:
+                    arm_name.data = 'left'
+                    place_pose.position.x = 0
+                    place_pose.position.y = 0.71
+                    place_pose.position.z = 0.605
 
-            pick_pose.position.x = centroid[0]
-            pick_pose.position.y = centroid[1]
-            pick_pose.position.z = centroid[2]
+                pick_pose.position.x = centroid[0]
+                pick_pose.position.y = centroid[1]
+                pick_pose.position.z = centroid[2]
 
-            # Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
-            yaml_dict = make_yaml_dict(test_scene_num, arm_name, object_name, pick_pose, place_pose)
-            dict_list.append(yaml_dict)
+                # Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
+                yaml_dict = make_yaml_dict(test_scene_num, arm_name, object_name, pick_pose, place_pose)
+                dict_list.append(yaml_dict)
 
-    # Wait for 'pick_place_routine' service to come up
-    rospy.wait_for_service('pick_place_routine')
+    # # Wait for 'pick_place_routine' service to come up
+    # rospy.wait_for_service('pick_place_routine')
+    #
+    # try:
+    #     pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+    #
+    #     # Insert your message variables to be sent as a service request
+    #     resp = pick_place_routine(test_scene_num, object_name, arm_name, pick_pose, place_pose)
+    #
+    #     print ("Response: ", resp.success)
+    #
+    # except rospy.ServiceException, e:
+    #     print "Service call failed: %s" % e
 
-    try:
-        pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
-
-        # Insert your message variables to be sent as a service request
-        resp = pick_place_routine(test_scene_num, object_name, arm_name, pick_pose, place_pose)
-
-        print ("Response: ", resp.success)
-
-    except rospy.ServiceException, e:
-        print "Service call failed: %s" % e
-
-        # Output your request parameters into output yaml file
-        send_to_yaml('output_%d.yaml' % test_scene_num.data, dict_list)
+    # Output your request parameters into output yaml file
+    print("Output .yaml file saved!")
+    send_to_yaml('output_%d.yaml' % test_scene_num.data, dict_list)
 
 
 if __name__ == '__main__':
@@ -248,7 +249,7 @@ if __name__ == '__main__':
 
     # get scene number
     test_scene_num = Int32()
-    test_scene_num.data = 1
+    test_scene_num.data = 3
 
     # Create Subscribers
     pcl_sub = rospy.Subscriber("/pr2/world/points", pc2.PointCloud2, pcl_callback, queue_size=1)
