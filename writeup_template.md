@@ -220,7 +220,7 @@ Images for object recognition are attached below.
 ![scene_3](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/scene_3.png)
 
 A Image for a successful pick and place is attached below.
-![pick_place] (https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/pick_place.png)
+![pick_place](https://github.com/AlexQian97/RoboND-Perception-Project/blob/master/images/pick_place.png)
 
 ## Discussion
 Both color histogram and normal histogram are used in training. 64 bins are used in color histogram and 32 bins are used
